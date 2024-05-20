@@ -27,6 +27,29 @@ Number = TypeVar('Number', int, float, np.ndarray, tf.Tensor)
 DB_RANGE = 80.0
 
 
+@tf.function
+def fftshift_personal(x, axes=None, name=None):
+    with tf.name_scope(name or "fftshift_personal"):
+        x = tf.convert_to_tensor(x)
+        if axes is None:
+            axes = list(range(x.shape.ndims))
+            shift = [s // 2 for s in x.shape]
+        elif isinstance(axes, int):
+            axes = [axes]  # Konvertiere int zu Liste
+            shift = [x.shape[axes[0]] // 2]
+        else:
+            rank = tf.rank(x)
+            # Negative Achsen ermöglichen
+            axes = tf.where(axes < 0, axes + rank, axes)
+            shift = tf.gather(tf.shape(x), axes) // 2
+
+        # Splitte den Tensor in zwei Teile und vertausche sie
+        splits = []
+        for i, s in zip(axes, shift):
+            first_half, second_half = tf.split(x, [s, -1], axis=i)
+            splits.append(tf.concat([second_half, first_half], axis=i))
+        return tf.concat(splits, axis=0)
+      
 # Utility Functions ------------------------------------------------------------
 def tf_float32(x):
   """Ensure array/tensor is a float32 tf.Tensor."""

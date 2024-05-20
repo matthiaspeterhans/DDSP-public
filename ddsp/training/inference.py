@@ -49,8 +49,8 @@ class AutoencoderInference(models.Autoencoder):
 
   def __init__(self,
                ckpt,
-               length_seconds=2,
-               remove_reverb=True,
+               length_seconds=3,
+               remove_reverb=False,
                verbose=True,
                **kwargs):
     self.length_seconds = length_seconds

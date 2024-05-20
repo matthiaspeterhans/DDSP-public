@@ -69,6 +69,10 @@ def compute_mag(audio, size=2048, overlap=0.75, pad_end=True):
   mag = tf.abs(stft(audio, frame_size=size, overlap=overlap, pad_end=pad_end))
   return tf_float32(mag)
 
+@gin.register
+def compute_complex(audio, size=2048, overlap=0.75, pad_end=True):
+    complex = stft(audio, frame_size=size, overlap=overlap, pad_end=pad_end)
+    return complex
 
 @gin.register
 def compute_mel(audio,
