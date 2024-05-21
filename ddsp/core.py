@@ -1127,7 +1127,7 @@ def harmonic_synthesis(frequencies: tf.Tensor,
                                  method=amp_resample_method)
 
   # Synthesize from harmonics [batch_size, n_samples].
-  audio = oscillator_bank(frequency_envelopes,
+  audio = oscillator_boscillator_bankank(frequency_envelopes,
                           amplitude_envelopes,
                           sample_rate=sample_rate,
                           use_angular_cumsum=use_angular_cumsum)

@@ -22,7 +22,7 @@ RnnFcDecoder.ch = 512
 RnnFcDecoder.layers_per_stack = 3
 RnnFcDecoder.input_keys = ('ld_scaled', 'f0_scaled')
 RnnFcDecoder.output_splits = (('amps', 1),
-                              ('harmonic_distribution', 60),
+                              ('harmonic_distribution', 100),
                               ('noise_magnitudes', 65))
 
 
@@ -31,9 +31,9 @@ Autoencoder.losses = [
     @losses.SpectralLoss(),
 ]
 SpectralLoss.loss_type = 'L1'
-SpectralLoss.complex_weight= 0.3
+SpectralLoss.complex_weight= 0.0
 SpectralLoss.logmag_weight = 1.0
-SpectralLoss.mag_weight = 0.7
+SpectralLoss.mag_weight = 1.0
 
 # ==============
 # ProcessorGroup

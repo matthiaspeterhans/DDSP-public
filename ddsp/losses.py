@@ -130,7 +130,7 @@ def mean_difference(target, value, loss_type='L1', weights=None):
 
 
 @gin.register
-class SpectralLoss_original(Loss):
+class SpectralLoss(Loss):
   """Multi-scale spectrogram loss.
 
   This loss is the bread-and-butter of comparing two audio signals. It offers
@@ -143,7 +143,7 @@ class SpectralLoss_original(Loss):
                fft_sizes=(2048, 1024, 512, 256, 128, 64),
                loss_type='L1',
                mag_weight=1.0,
-               complex_weight = 0.0,
+               complex_weight = 0.3,
                delta_time_weight=0.0,
                delta_freq_weight=0.0,
                cumsum_freq_weight=0.0,
@@ -217,8 +217,10 @@ class SpectralLoss_original(Loss):
       
 
       if self.complex_weight > 0:
-          complex_loss = tf_float32(tf.abs(target_complex - value_complex))
-          loss += self.complex_weight * complex_loss
+          #complex_loss = tf_float32(tf.abs(target_complex - value_complex))
+          #loss += self.complex_weight * complex_loss
+          loss += self.complex_weight * tf_float32(mean_difference(
+            target_complex, value_complex, self.loss_type, weights=weights))
             
 
       if self.delta_time_weight > 0:
@@ -256,112 +258,6 @@ class SpectralLoss_original(Loss):
 
     return loss
 
-@gin.register
-class SpectralLoss(Loss):
-    """Multi-scale spectrogram loss with phase and magnitude components."""
-
-    def __init__(self,
-                 fft_sizes=(2048, 1024, 512, 256, 128, 64),
-                 loss_type='L1',
-                 mag_weight=1.0,
-                 logmag_weight=1.0,
-                 phase_weight=0.0,  # Initial phase weight set to 0
-                 delta_time_weight=0.0,
-                 delta_freq_weight=0.0,
-                 cumsum_freq_weight=0.0,
-                 loudness_weight=0.0,
-                 epsilon=1e-10,  # Small value to avoid log of zero or division by zero
-                 name='spectral_loss'):
-        """Constructor, set loss weights of various components."""
-        super().__init__(name=name)
-        self.fft_sizes = fft_sizes
-        self.loss_type = loss_type
-        self.mag_weight = mag_weight
-        self.logmag_weight = logmag_weight
-        self.phase_weight = phase_weight
-        self.delta_time_weight = delta_time_weight
-        self.delta_freq_weight = delta_freq_weight
-        self.cumsum_freq_weight = cumsum_freq_weight
-        self.loudness_weight = loudness_weight
-        self.epsilon = epsilon
-
-        self.spectrogram_ops = []
-        for size in self.fft_sizes:
-            spectrogram_op = functools.partial(spectral_ops.compute_complex, size=size)
-            self.spectrogram_ops.append(spectrogram_op)
-
-    def call(self, target_audio, audio, weights=None):
-        loss = 0.0
-
-        diff = tf.experimental.numpy.diff
-        cumsum = tf.math.cumsum
-
-        for loss_op in self.spectrogram_ops:
-            target_complex = loss_op(target_audio)
-            value_complex = loss_op(audio)
-            target_mag = tf_float32(tf.abs(target_complex))
-            tf.debugging.check_numerics(target_mag, 'target_mag loss is NaN or Inf')
-            value_mag = tf_float32(tf.abs(value_complex))
-            tf.debugging.check_numerics(value_mag, 'value_mag loss is NaN or Inf')
-            target_phase = tf_float32(tf.math.angle(target_complex))
-            tf.debugging.check_numerics(target_phase, 'target_phase loss is NaN or Inf')
-            value_phase = tf_float32(tf.math.angle(value_complex))
-            tf.debugging.check_numerics(value_phase, 'value_phase loss is NaN or Inf')
-
-            if self.mag_weight > 0:
-                mag_loss = self.mag_weight * mean_difference(
-                    target_mag, value_mag, self.loss_type, weights=weights)
-                loss += mag_loss
-                tf.debugging.check_numerics(mag_loss, 'Magnitude loss is NaN or Inf')
-
-            if self.logmag_weight > 0:
-                target_logmag = spectral_ops.safe_log(target_mag)
-                value_logmag = spectral_ops.safe_log(value_mag)
-                logmag_loss = self.logmag_weight * mean_difference(
-                    target_logmag, value_logmag, self.loss_type, weights=weights)
-                loss += logmag_loss
-                tf.debugging.check_numerics(logmag_loss, 'Log magnitude loss is NaN or Inf')
-
-            if self.phase_weight > 0:
-                phase_difference = tf.math.floormod(target_phase - value_phase + np.pi, 2 * np.pi) - np.pi
-                phase_loss = self.phase_weight * mean_difference(phase_difference, 0.0, self.loss_type, weights=weights)
-                loss += phase_loss
-                tf.debugging.check_numerics(phase_loss, 'Phase loss is NaN or Inf')
-
-            if self.delta_time_weight > 0:
-                target = diff(target_mag, axis=1)
-                value = diff(value_mag, axis=1)
-                delta_time_loss = self.delta_time_weight * mean_difference(
-                    target, value, self.loss_type, weights=weights)
-                loss += delta_time_loss
-                tf.debugging.check_numerics(delta_time_loss, 'Delta time loss is NaN or Inf')
-
-            if self.delta_freq_weight > 0:
-                target = diff(target_mag, axis=2)
-                value = diff(value_mag, axis=2)
-                delta_freq_loss = self.delta_freq_weight * mean_difference(
-                    target, value, self.loss_type, weights=weights)
-                loss += delta_freq_loss
-                tf.debugging.check_numerics(delta_freq_loss, 'Delta frequency loss is NaN or Inf')
-
-            if self.cumsum_freq_weight > 0:
-                target = cumsum(target_mag, axis=2)
-                value = cumsum(value_mag, axis=2)
-                cumsum_freq_loss = self.cumsum_freq_weight * mean_difference(
-                    target, value, self.loss_type, weights=weights)
-                loss += cumsum_freq_loss
-                tf.debugging.check_numerics(cumsum_freq_loss, 'Cumulative sum frequency loss is NaN or Inf')
-
-        if self.loudness_weight > 0:
-            target = compute_loudness(target_audio, n_fft=2048, use_tf=True)
-            value = compute_loudness(audio, n_fft=2048, use_tf=True)
-            loudness_loss = self.loudness_weight * mean_difference(
-                target, value, self.loss_type, weights=weights)
-            loss += loudness_loss
-            tf.debugging.check_numerics(loudness_loss, 'Loudness loss is NaN or Inf')
-
-        tf.debugging.check_numerics(loss, 'Total loss is NaN or Inf')
-        return loss
 
 @gin.register
 class HmmTranscriber(tfp.distributions.HiddenMarkovModel):

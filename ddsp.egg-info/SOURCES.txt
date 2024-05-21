@@ -77,8 +77,8 @@ ddsp/training/gin/eval/midi_ae.gin
 ddsp/training/gin/models/__init__.py
 ddsp/training/gin/models/ae.gin
 ddsp/training/gin/models/large_voice.gin
-ddsp/training/gin/models/phase.gin
 ddsp/training/gin/models/solo_instrument.gin
+ddsp/training/gin/models/timbre_transfer.gin
 ddsp/training/gin/models/vst/__init__.py
 ddsp/training/gin/models/vst/vst.gin
 ddsp/training/gin/models/vst/vst_32k.gin
