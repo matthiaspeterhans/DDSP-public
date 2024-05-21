@@ -217,8 +217,6 @@ class SpectralLoss(Loss):
       
 
       if self.complex_weight > 0:
-          #complex_loss = tf_float32(tf.abs(target_complex - value_complex))
-          #loss += self.complex_weight * complex_loss
           loss += self.complex_weight * tf_float32(mean_difference(
             target_complex, value_complex, self.loss_type, weights=weights))
             
